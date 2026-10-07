@@ -1,0 +1,507 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Práctica JS: Tarjetas y Gatos HTTP</title>
+<style>
+  :root { --fondo:#eef1f6; --tinta:#1b2433; --acento:#f0a500; }
+  * { box-sizing:border-box; }
+  html, body { height:100%; margin:0; background:var(--fondo); font:16px Verdana, sans-serif; }
+  body { display:flex; flex-direction:column; }
+  nav { display:flex; gap:8px; padding:8px 12px; background:var(--tinta); }
+  nav button { font:inherit; flex:1; padding:10px; border:2px solid #fff; background:transparent; color:#fff; border-radius:8px; cursor:pointer; }
+  nav button[aria-selected="true"] { background:var(--acento); color:var(--tinta); border-color:var(--acento); font-weight:bold; }
+  nav button:focus-visible { outline:3px solid var(--acento); outline-offset:2px; }
+  iframe { flex:1; width:100%; border:0; display:none; }
+  iframe.activo { display:block; }
+</style>
+</head>
+<body>
+<nav role="tablist">
+  <button role="tab" id="t1" aria-selected="true" data-f="f1">Tarjetas de teoría</button>
+  <button role="tab" id="t2" aria-selected="false" data-f="f2">Gatos HTTP</button>
+</nav>
+<iframe id="f1" class="activo" title="Tarjetas JS" srcdoc="&lt;!doctype html&gt;
+&lt;html lang=&quot;es&quot;&gt;
+&lt;head&gt;
+&lt;meta charset=&quot;utf-8&quot;&gt;
+&lt;meta name=&quot;viewport&quot; content=&quot;width=device-width, initial-scale=1&quot;&gt;
+&lt;title&gt;Tarjetas JS v2&lt;/title&gt;
+&lt;style&gt;
+  :root { --fondo:#eef1f6; --tinta:#1b2433; --ok:#1f8a5b; --mal:#c8433b; --acento:#f0a500; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--fondo); color:var(--tinta); font:17px/1.5 Verdana, sans-serif; }
+  main { max-width:620px; margin:0 auto; padding:20px 16px; }
+  h1 { font-size:1.4rem; margin:0; }
+  #progreso { opacity:.7; margin:2px 0 14px; }
+  .barra { height:8px; background:#cfd6e3; border-radius:4px; margin-bottom:16px; }
+  .barra div { height:100%; width:0; background:var(--ok); border-radius:4px; transition:width .3s; }
+  .tarjeta { background:#fff; border:2px solid var(--tinta); border-radius:10px; padding:18px; }
+  #tema { font-size:.85rem; font-weight:bold; color:#6a5200; background:var(--acento); display:inline-block; padding:1px 10px; border-radius:10px; }
+  #pregunta { font-size:1.2rem; font-weight:bold; margin:10px 0 0; }
+  textarea { width:100%; height:120px; margin-top:14px; padding:10px; font:inherit; border:2px solid var(--tinta); border-radius:8px; resize:vertical; }
+  .fila { display:flex; gap:8px; margin-top:10px; flex-wrap:wrap; }
+  button { font:inherit; padding:10px 16px; border:2px solid var(--tinta); background:#fff; color:var(--tinta); border-radius:8px; cursor:pointer; }
+  button.principal { background:var(--tinta); color:#fff; flex:1; }
+  button:focus-visible, textarea:focus-visible { outline:3px solid var(--acento); outline-offset:2px; }
+  #msg { margin-top:14px; padding:10px 12px; border-radius:8px; display:none; }
+  #msg.ok { display:block; background:#dff3e9; border-left:6px solid var(--ok); }
+  #msg.mal { display:block; background:#f9e0de; border-left:6px solid var(--mal); }
+  #msg.info { display:block; background:#fff3d1; border-left:6px solid var(--acento); }
+
+&lt;/style&gt;
+&lt;/head&gt;
+&lt;body&gt;
+&lt;main&gt;
+  &lt;h1&gt;Tarjetas JS&lt;/h1&gt;
+  &lt;p id=&quot;progreso&quot;&gt;&lt;/p&gt;
+  &lt;div class=&quot;barra&quot;&gt;&lt;div id=&quot;avance&quot;&gt;&lt;/div&gt;&lt;/div&gt;
+  &lt;section class=&quot;tarjeta&quot;&gt;
+    &lt;span id=&quot;tema&quot;&gt;&lt;/span&gt;
+    &lt;p id=&quot;pregunta&quot;&gt;&lt;/p&gt;
+    &lt;textarea id=&quot;respuesta&quot; placeholder=&quot;Escribe lo que recuerdas...&quot; aria-label=&quot;Tu respuesta&quot;&gt;&lt;/textarea&gt;
+    &lt;div class=&quot;fila&quot;&gt;
+      &lt;button id=&quot;comprobar&quot; class=&quot;principal&quot;&gt;Comprobar&lt;/button&gt;
+      &lt;button id=&quot;pista&quot;&gt;Pista&lt;/button&gt;
+      &lt;button id=&quot;ver&quot;&gt;Ver respuesta&lt;/button&gt;
+    &lt;/div&gt;
+    &lt;div id=&quot;msg&quot; role=&quot;status&quot;&gt;&lt;/div&gt;
+  &lt;/section&gt;
+&lt;/main&gt;
+
+&lt;script&gt;
+/* Cada tarjeta: [tema, pregunta, respuesta modelo, claves]
+   &quot;claves&quot; = ideas que tu respuesta debe contener. Cada idea es una lista de
+   palabras equivalentes: basta con que escribas UNA de ellas.
+   Para agregar tarjetas, copia una línea y cámbiala. */
+const TARJETAS = [
+  [&quot;this&quot;, &quot;¿A qué se refiere this dentro de un método?&quot;, &quot;Al objeto en el que está contenido ese método.&quot;, [[&quot;objeto&quot;], [&quot;metodo&quot;, &quot;contiene&quot;, &quot;contenido&quot;, &quot;pertenece&quot;, &quot;engloba&quot;]]],
+  [&quot;this&quot;, &quot;¿A qué se refiere this cuando no hay ningún objeto que lo englobe?&quot;, &quot;Al contexto global.&quot;, [[&quot;global&quot;]]],
+  [&quot;this&quot;, &quot;¿Qué pasa con this en una arrow function?&quot;, &quot;No genera su propio this: usa el this de su ancestro más cercano que sí genere contexto.&quot;, [[&quot;no tiene&quot;, &quot;no genera&quot;, &quot;no crea&quot;, &quot;no posee&quot;, &quot;no tienen&quot;], [&quot;ancestro&quot;, &quot;padre&quot;, &quot;externo&quot;, &quot;cercano&quot;, &quot;hereda&quot;]]],
+  [&quot;this&quot;, &quot;En una función normal, ¿de qué depende el valor de this?&quot;, &quot;De dónde y cómo se utiliza: en una función normal depende de cómo se llama (objeto.metodo() → this es objeto).&quot;, [[&quot;llama&quot;, &quot;invoca&quot;, &quot;utiliza&quot;, &quot;usa&quot;, &quot;donde&quot;, &quot;contexto&quot;]]],
+  [&quot;Hoisting&quot;, &quot;¿Qué es el hoisting?&quot;, &quot;Comportamiento del intérprete: permite referenciar variables y funciones antes de declararlas sin error, porque la declaración se &#x27;eleva&#x27; a la parte más alta de su contexto.&quot;, [[&quot;declarar&quot;, &quot;declaracion&quot;, &quot;declaradas&quot;], [&quot;antes&quot;], [&quot;eleva&quot;, &quot;mueve&quot;, &quot;arriba&quot;, &quot;alto&quot;, &quot;sin error&quot;, &quot;sin que&quot;]]],
+  [&quot;Hoisting&quot;, &quot;¿Con qué palabra se eleva una variable y qué valor tiene antes de asignarse?&quot;, &quot;Con var; vale undefined hasta que se le asigna un valor.&quot;, [[&quot;var&quot;], [&quot;undefined&quot;, &quot;indefinido&quot;]]],
+  [&quot;Hoisting&quot;, &quot;¿Qué pasa si usas let o const antes de declararlas?&quot;, &quot;Da error (ReferenceError): no se pueden usar antes de su declaración.&quot;, [[&quot;error&quot;, &quot;referenceerror&quot;], [&quot;antes&quot;, &quot;declaracion&quot;, &quot;declarar&quot;]]],
+  [&quot;Objetos&quot;, &quot;¿Cómo se comportan los derivados de Object (arrays, funciones...) al asignarlos?&quot;, &quot;Funcionan por referencia, por eso importa la mutabilidad: modificar uno puede cambiar el original.&quot;, [[&quot;referencia&quot;], [&quot;mutab&quot;, &quot;modific&quot;, &quot;cambia&quot;, &quot;original&quot;]]],
+  [&quot;Objetos&quot;, &quot;¿Qué hace structuredClone()?&quot;, &quot;Hace una copia profunda de un objeto, sin compartir referencias con el original.&quot;, [[&quot;copia&quot;, &quot;clon&quot;], [&quot;profunda&quot;, &quot;referencia&quot;, &quot;original&quot;, &quot;independiente&quot;]]],
+  [&quot;Arrays&quot;, &quot;¿Qué es un array en JS?&quot;, &quot;Un listado de elementos de cualquier tipo, iterable (se recorre con for...of) y con elementos que pueden repetirse.&quot;, [[&quot;listado&quot;, &quot;lista&quot;, &quot;coleccion&quot;, &quot;conjunto&quot;], [&quot;iterable&quot;, &quot;for of&quot;, &quot;for...of&quot;, &quot;recorr&quot;], [&quot;cualquier&quot;, &quot;repet&quot;]]],
+  [&quot;Arrays&quot;, &quot;¿Qué devuelve la propiedad .length de un array?&quot;, &quot;La cantidad de elementos del array.&quot;, [[&quot;cantidad&quot;, &quot;numero&quot;, &quot;longitud&quot;, &quot;tamano&quot;, &quot;elementos&quot;]]],
+  [&quot;Desestructuración&quot;, &quot;¿Qué es la desestructuración?&quot;, &quot;Una sintaxis que permite desempacar valores de arreglos o propiedades de objetos en variables distintas.&quot;, [[&quot;desempacar&quot;, &quot;extraer&quot;, &quot;sacar&quot;, &quot;separar&quot;], [&quot;arreglo&quot;, &quot;array&quot;, &quot;objeto&quot;], [&quot;variable&quot;]]],
+  [&quot;Desestructuración&quot;, &quot;¿Qué hacen los tres puntos (...) con spread y con rest?&quot;, &quot;Spread expande/copia elementos o propiedades; rest agrupa el resto en un array u objeto.&quot;, [[&quot;spread&quot;, &quot;expand&quot;, &quot;copia&quot;, &quot;esparc&quot;], [&quot;rest&quot;, &quot;resto&quot;, &quot;agrupa&quot;]]],
+  [&quot;Métodos de array&quot;, &quot;¿Para qué sirve Array.isArray()?&quot;, &quot;Para saber si una variable es o no un Array.&quot;, [[&quot;saber&quot;, &quot;dice&quot;, &quot;comprueba&quot;, &quot;verifica&quot;, &quot;indica&quot;], [&quot;array&quot;, &quot;arreglo&quot;]]],
+  [&quot;Métodos de array&quot;, &quot;¿Qué hace Array.from()?&quot;, &quot;Crea un array a partir de un iterable (o casi-array).&quot;, [[&quot;crea&quot;], [&quot;iterable&quot;, &quot;casi&quot;]]],
+  [&quot;Métodos de array&quot;, &quot;¿Qué hace Array.of()?&quot;, &quot;Crea un array con los elementos que reciba.&quot;, [[&quot;crea&quot;], [&quot;elementos&quot;, &quot;recibe&quot;, &quot;parametros&quot;, &quot;argumentos&quot;]]],
+  [&quot;Métodos de array&quot;, &quot;¿Qué hace .pop()?&quot;, &quot;Borra el último elemento del array y lo devuelve.&quot;, [[&quot;ultimo&quot;, &quot;final&quot;], [&quot;borra&quot;, &quot;elimina&quot;, &quot;quita&quot;, &quot;saca&quot;], [&quot;devuelve&quot;, &quot;retorna&quot;]]],
+  [&quot;Métodos de array&quot;, &quot;¿Qué hace .push()?&quot;, &quot;Añade uno o más elementos al final del array y devuelve la nueva longitud.&quot;, [[&quot;anade&quot;, &quot;agrega&quot;, &quot;inserta&quot;, &quot;mete&quot;], [&quot;final&quot;], [&quot;longitud&quot;, &quot;tamano&quot;, &quot;largo&quot;]]],
+  [&quot;Métodos de array&quot;, &quot;¿Qué hace .shift()?&quot;, &quot;Elimina el primer elemento del array y lo devuelve.&quot;, [[&quot;primer&quot;, &quot;inicio&quot;, &quot;principio&quot;], [&quot;elimina&quot;, &quot;borra&quot;, &quot;quita&quot;, &quot;saca&quot;], [&quot;devuelve&quot;, &quot;retorna&quot;]]],
+  [&quot;Métodos de array&quot;, &quot;¿Qué hace .reverse()?&quot;, &quot;Da la vuelta a los elementos del array.&quot;, [[&quot;vuelta&quot;, &quot;invierte&quot;, &quot;revierte&quot;, &quot;inverso&quot;, &quot;reves&quot;, &quot;contrario&quot;]]],
+  [&quot;Métodos de array&quot;, &quot;¿Qué hace .sort() y qué pasa si no le das función de comparación?&quot;, &quot;Ordena los elementos y devuelve el array ordenado; sin función ordena alfabéticamente (como texto). Acepta una función de comparación.&quot;, [[&quot;ordena&quot;], [&quot;comparacion&quot;, &quot;funcion&quot;], [&quot;alfabet&quot;, &quot;texto&quot;, &quot;string&quot;]]],
+  [&quot;HTTP&quot;, &quot;¿Qué es HTTP?&quot;, &quot;Un protocolo (conjunto de reglas) para la comunicación cliente-servidor: el navegador envía una solicitud y el servidor responde.&quot;, [[&quot;protocolo&quot;, &quot;reglas&quot;], [&quot;cliente&quot;], [&quot;servidor&quot;]]],
+  [&quot;HTTP&quot;, &quot;¿Qué solicitud se usa para pedir datos y cuál para enviarlos?&quot;, &quot;GET para obtener datos; POST para enviarlos (PUT para reemplazar o actualizar).&quot;, [[&quot;get&quot;], [&quot;post&quot;, &quot;put&quot;]]],
+  [&quot;HTTP&quot;, &quot;¿Cuál es la diferencia entre HTTP y HTTPS?&quot;, &quot;HTTP envía datos sin cifrar (pueden ser interceptados); HTTPS es la versión segura y establece una conexión cifrada antes de transferir datos.&quot;, [[&quot;cifr&quot;, &quot;encript&quot;], [&quot;segur&quot;], [&quot;intercept&quot;, &quot;terceros&quot;, &quot;leid&quot;]]],
+  [&quot;HTTPS&quot;, &quot;¿Qué tecnología agrega seguridad a HTTPS?&quot;, &quot;TLS (y su antecesor, SSL).&quot;, [[&quot;tls&quot;, &quot;ssl&quot;]]],
+  [&quot;HTTPS&quot;, &quot;Explica paso a paso cómo funciona HTTPS.&quot;, &quot;El navegador pide el certificado; el servidor lo envía con su clave pública; el navegador verifica y cifra una clave de sesión con esa clave pública; el servidor la descifra con su clave privada y confirma.&quot;, [[&quot;certificado&quot;], [&quot;publica&quot;], [&quot;privada&quot;], [&quot;sesion&quot;]]],
+  [&quot;Códigos HTTP&quot;, &quot;¿Qué significan 200, 404 y 500?&quot;, &quot;200 OK: salió bien. 404 Not Found: el recurso no existe. 500: error interno del servidor.&quot;, [[&quot;200&quot;, &quot;ok&quot;, &quot;bien&quot;], [&quot;404&quot;, &quot;no existe&quot;, &quot;no encontr&quot;, &quot;not found&quot;], [&quot;500&quot;, &quot;servidor&quot;, &quot;interno&quot;]]],
+  [&quot;Funciones&quot;, &quot;¿Qué es un callback?&quot;, &quot;Una función que se pasa por parámetro a otra función.&quot;, [[&quot;funcion&quot;], [&quot;parametro&quot;, &quot;argumento&quot;]]],
+  [&quot;Funciones&quot;, &quot;¿Qué es una función de orden superior (HOF)?&quot;, &quot;Una función que recibe otra función como parámetro o devuelve una función. Ej: map, filter.&quot;, [[&quot;recibe&quot;, &quot;parametro&quot;, &quot;argumento&quot;], [&quot;funcion&quot;], [&quot;devuelve&quot;, &quot;retorna&quot;, &quot;map&quot;, &quot;filter&quot;]]],
+  [&quot;Funciones&quot;, &quot;¿Qué es una arrow function y qué particularidad tiene?&quot;, &quot;Sintaxis corta de función con =&gt;; no tiene su propio this.&quot;, [[&quot;=&gt;&quot;, &quot;flecha&quot;, &quot;corta&quot;], [&quot;this&quot;, &quot;contexto&quot;]]],
+  [&quot;Clases&quot;, &quot;¿Qué es una clase y para qué sirve el constructor?&quot;, &quot;Una plantilla para crear objetos con datos y métodos; el constructor se ejecuta con new e inicializa el objeto.&quot;, [[&quot;plantilla&quot;, &quot;molde&quot;, &quot;objetos&quot;], [&quot;constructor&quot;, &quot;new&quot;, &quot;inicial&quot;]]],
+  [&quot;Promesas&quot;, &quot;¿Qué es una promesa?&quot;, &quot;Algo que se cumplirá en el futuro: representa el resultado eventual de una operación asíncrona.&quot;, [[&quot;futuro&quot;, &quot;eventual&quot;, &quot;despues&quot;], [&quot;asincron&quot;, &quot;resultado&quot;, &quot;cumpl&quot;]]],
+  [&quot;Promesas&quot;, &quot;¿Cuáles son los estados de una promesa?&quot;, &quot;Pendiente (pending), cumplida o resuelta (fulfilled) y rechazada (rejected).&quot;, [[&quot;pendiente&quot;, &quot;pending&quot;], [&quot;cumplida&quot;, &quot;resuelta&quot;, &quot;fulfilled&quot;], [&quot;rechazada&quot;, &quot;rejected&quot;]]],
+  [&quot;Asincronía&quot;, &quot;¿Qué es la programación asíncrona?&quot;, &quot;Un paradigma donde las tareas se ejecutan de forma independiente, sin bloquear ni esperar a que otras terminen.&quot;, [[&quot;independiente&quot;, &quot;sin bloquear&quot;, &quot;no espera&quot;, &quot;no bloquea&quot;, &quot;sin esperar&quot;], [&quot;tarea&quot;, &quot;operacion&quot;, &quot;solicitud&quot;]]],
+  [&quot;Asincronía&quot;, &quot;¿Para qué sirven async y await?&quot;, &quot;async marca una función asíncrona (devuelve una promesa); await pausa dentro de ella hasta que la promesa se resuelva.&quot;, [[&quot;async&quot;], [&quot;await&quot;], [&quot;promesa&quot;, &quot;espera&quot;, &quot;pausa&quot;]]],
+  [&quot;ECMAScript&quot;, &quot;¿Qué es ECMAScript?&quot;, &quot;La especificación o estándar en la que se basa JavaScript.&quot;, [[&quot;especificacion&quot;, &quot;estandar&quot;, &quot;norma&quot;]]],
+
+  // ===== v2: ECMAScript (lenguajejs.com/javascript/introduccion/ecmascript) =====
+  [&quot;ECMAScript&quot;, &quot;¿Para qué sirve la especificación ECMAScript en los navegadores?&quot;, &quot;Define cómo debe funcionar y comportarse JavaScript, para que los motores de los distintos navegadores hagan que cualquier código funcione igual.&quot;, [[&quot;funcion&quot;, &quot;comporta&quot;, &quot;define&quot;, &quot;detalla&quot;], [&quot;navegador&quot;, &quot;motor&quot;], [&quot;igual&quot;, &quot;mismo&quot;, &quot;cualquier&quot;]]],
+  [&quot;ECMAScript&quot;, &quot;¿Qué indica el número que acompaña a ECMAScript?&quot;, &quot;La versión o revisión; en cada nueva versión se añaden nuevas funcionalidades.&quot;, [[&quot;version&quot;, &quot;revision&quot;], [&quot;nuevas&quot;, &quot;novedades&quot;, &quot;anade&quot;, &quot;agrega&quot;, &quot;funcionalidades&quot;]]],
+  [&quot;ECMAScript&quot;, &quot;¿Todos los navegadores cumplen la especificación al 100 %?&quot;, &quot;No: intentan cumplirla al máximo pero hay discrepancias (unos al 80 %, otros al 60 %), así que una característica puede funcionar en un navegador y en otro no.&quot;, [[&quot;discrepancia&quot;, &quot;diferencia&quot;, &quot;porcentaje&quot;, &quot;parcial&quot;, &quot;no todos&quot;, &quot;no cumplen&quot;, &quot;no lo cumplen&quot;, &quot;no siempre&quot;], [&quot;caracteristica&quot;, &quot;funcionalidad&quot;, &quot;funciona&quot;, &quot;navegador&quot;]]],
+  [&quot;ECMAScript&quot;, &quot;¿Para qué sirve la tabla de compatibilidad Kangax?&quot;, &quot;Para ver qué porcentaje de las características de cada versión de ECMAScript cumple un navegador concreto.&quot;, [[&quot;porcentaje&quot;, &quot;compatibilidad&quot;, &quot;soporta&quot;, &quot;cumple&quot;, &quot;estado&quot;], [&quot;navegador&quot;]]],
+  [&quot;ECMAScript&quot;, &quot;¿Cómo se recomienda nombrar las versiones desde 2015?&quot;, &quot;Por su año y no por su número de edición: ECMAScript 2015 en lugar de ES6.&quot;, [[&quot;ano&quot;, &quot;2015&quot;], [&quot;numero&quot;, &quot;edicion&quot;, &quot;es6&quot;, &quot;en lugar&quot;]]],
+  [&quot;Versiones ES&quot;, &quot;¿Qué trajo ES6 (ECMAScript 2015)?&quot;, &quot;Clases, módulos, hashmaps (Map), sets, for of y proxies.&quot;, [[&quot;clase&quot;], [&quot;modulo&quot;, &quot;map&quot;, &quot;set&quot;, &quot;for of&quot;, &quot;proxy&quot;, &quot;proxies&quot;]]],
+  [&quot;Versiones ES&quot;, &quot;¿Qué novedades trajo ES5 (2009)?&quot;, &quot;Strict mode y JSON.&quot;, [[&quot;strict&quot;, &quot;estricto&quot;], [&quot;json&quot;]]],
+  [&quot;Versiones ES&quot;, &quot;¿Qué novedades trajo ES3 (1999)?&quot;, &quot;Expresiones regulares (RegExp) y try/catch.&quot;, [[&quot;regexp&quot;, &quot;expresion&quot;], [&quot;try&quot;, &quot;catch&quot;]]],
+  [&quot;Versiones ES&quot;, &quot;¿Qué pasó con ES4 (2008)?&quot;, &quot;Fue una versión abandonada.&quot;, [[&quot;abandon&quot;, &quot;cancel&quot;, &quot;nunca&quot;]]],
+  [&quot;Versiones ES&quot;, &quot;¿Qué trajo ES2016 (ES7)?&quot;, &quot;Array includes() y el operador de exponenciación **.&quot;, [[&quot;includes&quot;], [&quot;exponen&quot;, &quot;**&quot;, &quot;potencia&quot;]]],
+  [&quot;Versiones ES&quot;, &quot;¿Qué gran novedad trajo ES2017 (ES8)?&quot;, &quot;async/await.&quot;, [[&quot;async&quot;, &quot;await&quot;]]],
+  [&quot;Versiones ES&quot;, &quot;¿Qué trajo ES2018 (ES9)?&quot;, &quot;Operadores rest/spread y Promise.finally().&quot;, [[&quot;rest&quot;, &quot;spread&quot;], [&quot;finally&quot;]]],
+  [&quot;Versiones ES&quot;, &quot;¿Qué trajo ES2019 (edición 10)?&quot;, &quot;flat, flatMap, trimStart() y el catch opcional (sin parámetro de error).&quot;, [[&quot;flat&quot;], [&quot;trimstart&quot;, &quot;trim&quot;], [&quot;catch&quot;, &quot;opcional&quot;, &quot;optional&quot;]]],
+  [&quot;Versiones ES&quot;, &quot;¿Qué trajo ES2020 (edición 11)?&quot;, &quot;Dynamic imports, BigInt y Promise.allSettled.&quot;, [[&quot;dinamic&quot;, &quot;dynamic&quot;, &quot;import&quot;], [&quot;bigint&quot;], [&quot;allsettled&quot;]]],
+  [&quot;Versiones ES&quot;, &quot;¿Qué trajo ES2021 (edición 12)?&quot;, &quot;Promise.any, globalThis y replaceAll().&quot;, [[&quot;any&quot;], [&quot;globalthis&quot;], [&quot;replaceall&quot;]]],
+  [&quot;Versiones ES&quot;, &quot;¿Qué trajo ES2022 (edición 13)?&quot;, &quot;at(), top-level await en módulos y campos privados (#).&quot;, [[&quot;at(&quot;, &quot;metodo at&quot;], [&quot;top-level&quot;, &quot;top level&quot;, &quot;nivel superior&quot;], [&quot;privad&quot;]]],
+  [&quot;Versiones ES&quot;, &quot;¿Qué trajo ES2023 (edición 14)?&quot;, &quot;findLast(), hashbang, toReversed() y toSorted().&quot;, [[&quot;findlast&quot;], [&quot;toreversed&quot;, &quot;tosorted&quot;], [&quot;hashbang&quot;]]],
+  [&quot;Versiones ES&quot;, &quot;¿Qué trajo ES2024 (edición 15)?&quot;, &quot;groupBy, withResolvers, waitAsync e isWellFormed.&quot;, [[&quot;groupby&quot;], [&quot;withresolvers&quot;], [&quot;waitasync&quot;, &quot;iswellformed&quot;]]],
+  [&quot;Versiones ES&quot;, &quot;¿Qué trajo ES2025 (edición 16)?&quot;, &quot;Set helpers, Iterator helpers, Promise.try e import attributes.&quot;, [[&quot;set helper&quot;], [&quot;iterator&quot;], [&quot;promise.try&quot;], [&quot;attributes&quot;, &quot;atributos&quot;]]],
+  [&quot;Crossbrowser&quot;, &quot;¿Cuáles son las 4 estrategias «crossbrowser» para que el código funcione en todos los navegadores?&quot;, &quot;Conservador, delegador, evergreen y transpilador.&quot;, [[&quot;conservador&quot;], [&quot;delegador&quot;], [&quot;evergreen&quot;], [&quot;transpilador&quot;]]],
+  [&quot;Crossbrowser&quot;, &quot;Enfoque conservador: ¿en qué consiste y qué pros y contras tiene?&quot;, &quot;Escribir código en una versión ECMAScript antigua («ignoras los problemas y escribes código viejo»). Pro: compatible con la mayoría de navegadores y sin herramientas externas. Contra: mucho código para ciertas tareas y sin las novedades de JS.&quot;, [[&quot;antigua&quot;, &quot;vieja&quot;, &quot;viejo&quot;, &quot;antiguo&quot;], [&quot;compatible&quot;, &quot;mayoria&quot;, &quot;navegadores&quot;], [&quot;mas codigo&quot;, &quot;mucho codigo&quot;, &quot;novedades&quot;, &quot;no podra&quot;]]],
+  [&quot;Crossbrowser&quot;, &quot;Enfoque delegador: ¿en qué consiste y qué pros y contras tiene?&quot;, &quot;Delegar la compatibilidad en un framework o librería («te despreocupas y confías en que lo hará bien»). Pro: cómodo y transparente. Contra: el framework es una dependencia y se pierde algo de rendimiento y control.&quot;, [[&quot;framework&quot;, &quot;libreria&quot;], [&quot;delega&quot;, &quot;despreocupa&quot;, &quot;confia&quot;], [&quot;dependencia&quot;, &quot;rendimiento&quot;, &quot;control&quot;]]],
+  [&quot;Crossbrowser&quot;, &quot;Enfoque evergreen: ¿en qué consiste y qué pros y contras tiene?&quot;, &quot;Dar soporte solo a las últimas versiones de los navegadores («si no usas este navegador, no es mi problema»). Pro: cómodo, ideal si puedes obligar a actualizar. Contra: no funcionará a usuarios con navegadores antiguos.&quot;, [[&quot;ultimas&quot;, &quot;recientes&quot;, &quot;actualiz&quot;, &quot;evergreen&quot;], [&quot;soporte&quot;, &quot;compatib&quot;, &quot;solo&quot;, &quot;unicamente&quot;], [&quot;antiguos&quot;, &quot;viejos&quot;, &quot;no funcionara&quot;, &quot;no funciona&quot;]]],
+  [&quot;Crossbrowser&quot;, &quot;Enfoque transpilador: ¿en qué consiste y qué pros y contras tiene?&quot;, &quot;Escribes en la última versión de ECMAScript y una herramienta lo convierte a versiones antiguas. Pro: código moderno compatible en todos lados. Contra: más complejo, requiere configuración y debes editar los originales, no los transpilados.&quot;, [[&quot;ultima&quot;, &quot;moderno&quot;, &quot;reciente&quot;], [&quot;herramienta&quot;, &quot;convierte&quot;, &quot;transpila&quot;], [&quot;antigua&quot;, &quot;antiguas&quot;, &quot;viejas&quot;, &quot;compatible&quot;]]],
+  [&quot;Crossbrowser&quot;, &quot;¿Qué es transpilar?&quot;, &quot;Convertir, con una herramienta, código de una versión reciente de ECMAScript a versiones antiguas.&quot;, [[&quot;convertir&quot;, &quot;convierte&quot;, &quot;transform&quot;, &quot;traduc&quot;], [&quot;antigu&quot;, &quot;vieja&quot;, &quot;versiones&quot;]]],
+  [&quot;Crossbrowser&quot;, &quot;¿Qué es un polyfill?&quot;, &quot;Una librería o código JS que actúa de parche o relleno para dar una característica que el navegador aún no tiene.&quot;, [[&quot;parche&quot;, &quot;relleno&quot;, &quot;libreria&quot;, &quot;codigo&quot;], [&quot;caracteristica&quot;, &quot;funcionalidad&quot;, &quot;soporta&quot;], [&quot;no tiene&quot;, &quot;aun no&quot;, &quot;no posee&quot;, &quot;no implementa&quot;, &quot;falta&quot;]]],
+  [&quot;Crossbrowser&quot;, &quot;¿Qué es un fallback?&quot;, &quot;Un fragmento de código preparado para ofrecer una alternativa en caso de que algo no entre en funcionamiento.&quot;, [[&quot;alternativa&quot;, &quot;plan b&quot;, &quot;respaldo&quot;], [&quot;no funciona&quot;, &quot;no entra&quot;, &quot;falla&quot;, &quot;error&quot;]]],
+
+  // ===== v2: Hoisting (más a fondo) =====
+  [&quot;Hoisting&quot;, &quot;¿Qué imprime console.log(miVariable); var miVariable = &#x27;Esto no existe&#x27; y por qué no da error?&quot;, &quot;Imprime undefined: con var el motor mueve la declaración a la parte más alta de su contexto, así que la variable existe pero aún sin valor.&quot;, [[&quot;undefined&quot;, &quot;indefinido&quot;], [&quot;declaracion&quot;, &quot;declara&quot;], [&quot;alto&quot;, &quot;arriba&quot;, &quot;eleva&quot;, &quot;mueve&quot;, &quot;principio&quot;]]],
+  [&quot;Hoisting&quot;, &quot;¿Con qué tipo de declaración funciona el hoisting de variables del ejemplo?&quot;, &quot;Solo con var.&quot;, [[&quot;var&quot;]]],
+  [&quot;Hoisting&quot;, &quot;¿Cómo queda realmente el código del ejemplo después del hoisting?&quot;, &quot;Primero var miVariable (declaración elevada), luego console.log(miVariable) y al final la asignación miVariable = &#x27;Esto no existe&#x27;.&quot;, [[&quot;declaracion&quot;, &quot;var&quot;], [&quot;arriba&quot;, &quot;primero&quot;, &quot;antes&quot;, &quot;inicio&quot;], [&quot;asignacion&quot;, &quot;despues&quot;, &quot;final&quot;, &quot;valor&quot;]]],
+  [&quot;Hoisting&quot;, &quot;¿Qué se eleva con el hoisting: la declaración, la asignación o ambas?&quot;, &quot;Solo la declaración; la asignación se queda donde está escrita.&quot;, [[&quot;declaracion&quot;, &quot;declara&quot;], [&quot;asignacion&quot;, &quot;valor&quot;, &quot;se queda&quot;, &quot;donde&quot;]]],
+  [&quot;Hoisting&quot;, &quot;¿A dónde «mueve» el motor de JavaScript la declaración?&quot;, &quot;A la parte más alta de su contexto.&quot;, [[&quot;alta&quot;, &quot;arriba&quot;, &quot;principio&quot;, &quot;inicio&quot;, &quot;superior&quot;], [&quot;contexto&quot;, &quot;scope&quot;, &quot;ambito&quot;]]],
+  [&quot;Hoisting&quot;, &quot;¿Puedes llamar a una función declarada con function antes de escribirla en el código?&quot;, &quot;Sí: la declaración de función se eleva completa, así que funciona sin error.&quot;, [[&quot;se eleva&quot;, &quot;completa&quot;, &quot;funciona&quot;, &quot;sin error&quot;, &quot;puedes&quot;]]],
+  [&quot;Hoisting&quot;, &quot;¿Qué pasa si guardas una función en una variable con var y la llamas antes de definirla?&quot;, &quot;Da TypeError: la variable existe pero vale undefined, todavía no es una función.&quot;, [[&quot;typeerror&quot;, &quot;error&quot;], [&quot;undefined&quot;, &quot;no es una funcion&quot;, &quot;no es funcion&quot;]]],
+  [&quot;Hoisting&quot;, &quot;¿Los let y const se elevan?&quot;, &quot;Técnicamente sí, pero quedan en la «zona muerta temporal» hasta su declaración; por eso usarlas antes da ReferenceError.&quot;, [[&quot;zona muerta&quot;, &quot;tdz&quot;, &quot;temporal&quot;, &quot;no se puede&quot;, &quot;error&quot;], [&quot;referenceerror&quot;, &quot;error&quot;, &quot;antes&quot;]]],
+];
+
+const $ = (s) =&gt; document.querySelector(s);
+const barajar = (l) =&gt; [...l].sort(() =&gt; Math.random() - 0.5);
+const limpiar = (t) =&gt; t.toLowerCase().normalize(&quot;NFD&quot;).replace(/[\u0300-\u036f]/g, &quot;&quot;);
+// Devuelve las ideas clave que aparecen en el texto del usuario.
+const acertadas = (texto, claves) =&gt; claves.filter((alts) =&gt; alts.some((a) =&gt; texto.includes(limpiar(a))));
+
+let cola = barajar(TARJETAS);
+let dominadas = 0, intentos = 0, resuelta = false;
+
+function aviso(texto, tipo) {
+  const m = $(&quot;#msg&quot;);
+  m.className = tipo;
+  m.textContent = texto;
+}
+
+function mostrar() {
+  resuelta = false;
+  $(&quot;#progreso&quot;).textContent = `Dominadas ${dominadas} de ${TARJETAS.length}. Intentos: ${intentos}`;
+  $(&quot;#avance&quot;).style.width = `${(dominadas / TARJETAS.length) * 100}%`;
+  $(&quot;#msg&quot;).className = &quot;&quot;;
+  $(&quot;#comprobar&quot;).textContent = &quot;Comprobar&quot;;
+  $(&quot;#respuesta&quot;).value = &quot;&quot;;
+  $(&quot;#respuesta&quot;).disabled = false;
+
+  if (cola.length === 0) {
+    $(&quot;#tema&quot;).textContent = &quot;¡Listo!&quot;;
+    $(&quot;#pregunta&quot;).textContent = `Dominaste las ${TARJETAS.length} tarjetas con ${intentos} intentos.`;
+    $(&quot;#comprobar&quot;).textContent = &quot;Empezar de nuevo&quot;;
+    $(&quot;#respuesta&quot;).disabled = true;
+    resuelta = true;
+    cola = barajar(TARJETAS); dominadas = 0; intentos = 0;
+    return;
+  }
+  const [tema, pregunta] = cola[0]; // desestructuración de array
+  $(&quot;#tema&quot;).textContent = tema;
+  $(&quot;#pregunta&quot;).textContent = pregunta;
+  $(&quot;#respuesta&quot;).focus();
+}
+
+function comprobar() {
+  if (resuelta) return mostrar();
+  const texto = limpiar($(&quot;#respuesta&quot;).value.trim());
+  if (!texto) return aviso(&quot;Escribe algo primero.&quot;, &quot;info&quot;);
+
+  const [, , modelo, claves] = cola[0];
+  const aciertos = acertadas(texto, claves);
+  intentos++;
+
+  if (aciertos.length &gt;= Math.ceil(claves.length * 0.6)) {
+    aviso(`Correcto. Respuesta modelo: ${modelo}`, &quot;ok&quot;);
+    cola.shift();          // sale de la cola: ya la dominas
+    dominadas++;
+    terminarTarjeta();
+  } else {
+    aviso(`Error: tienes ${aciertos.length} de ${claves.length} ideas clave. Escribe de nuevo.`, &quot;mal&quot;);
+    $(&quot;#respuesta&quot;).value = &quot;&quot;;
+    $(&quot;#respuesta&quot;).focus();
+  }
+}
+
+function verRespuesta() {
+  if (resuelta) return;
+  const [, , modelo] = cola[0];
+  aviso(`Respuesta: ${modelo} (esta tarjeta volverá a salir)`, &quot;info&quot;);
+  cola.push(cola.shift()); // al final de la cola: la repites después
+  terminarTarjeta();
+}
+
+function terminarTarjeta() {
+  resuelta = true;
+  $(&quot;#respuesta&quot;).disabled = true;
+  $(&quot;#comprobar&quot;).textContent = &quot;Siguiente&quot;;
+  $(&quot;#comprobar&quot;).focus();
+  $(&quot;#progreso&quot;).textContent = `Dominadas ${dominadas} de ${TARJETAS.length}. Intentos: ${intentos}`;
+  $(&quot;#avance&quot;).style.width = `${(dominadas / TARJETAS.length) * 100}%`;
+}
+
+function pista() {
+  if (resuelta) return;
+  const texto = limpiar($(&quot;#respuesta&quot;).value);
+  const [, , , claves] = cola[0];
+  const faltan = claves.filter((alts) =&gt; !alts.some((a) =&gt; texto.includes(limpiar(a))));
+  aviso(faltan.length ? `Pista: te falta mencionar algo relacionado con &quot;${faltan[0][0]}&quot;.` : &quot;Ya tienes todas las ideas, pulsa Comprobar.&quot;, &quot;info&quot;);
+}
+
+$(&quot;#comprobar&quot;).addEventListener(&quot;click&quot;, comprobar);
+$(&quot;#ver&quot;).addEventListener(&quot;click&quot;, verRespuesta);
+$(&quot;#pista&quot;).addEventListener(&quot;click&quot;, pista);
+$(&quot;#respuesta&quot;).addEventListener(&quot;keydown&quot;, (e) =&gt; {
+  if (e.key === &quot;Enter&quot; &amp;&amp; !e.shiftKey) { e.preventDefault(); comprobar(); }
+});
+
+mostrar();
+
+&lt;/script&gt;
+&lt;/body&gt;
+&lt;/html&gt;
+"></iframe>
+<iframe id="f2" title="Gatos HTTP" srcdoc="&lt;!doctype html&gt;
+&lt;html lang=&quot;es&quot;&gt;
+&lt;head&gt;
+&lt;meta charset=&quot;utf-8&quot;&gt;
+&lt;meta name=&quot;viewport&quot; content=&quot;width=device-width, initial-scale=1&quot;&gt;
+&lt;title&gt;Gatos HTTP v2&lt;/title&gt;
+&lt;style&gt;
+  :root { --fondo:#e8eef6; --tinta:#1b2433; --ok:#1f8a5b; --mal:#c8433b; --acento:#f0a500; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--fondo); color:var(--tinta); font:18px/1.5 Verdana, sans-serif; }
+  main { max-width:480px; margin:0 auto; padding:24px 16px; }
+  h1 { font-size:1.6rem; margin:0 0 4px; }
+  #marcador { margin:0 0 16px; opacity:.7; }
+  #pregunta { font-size:1.15rem; font-weight:bold; min-height:3.2em; }
+  #opciones { display:grid; grid-template-columns:1fr; gap:10px; margin:12px 0; }
+  #opciones button { text-align:left; font-size:.95rem; }
+  #numero { font-size:3rem; text-align:center; margin:4px 0; }
+  button { font:inherit; padding:12px; border:2px solid var(--tinta); background:#fff; color:var(--tinta); border-radius:8px; cursor:pointer; }
+  button:hover:not(:disabled) { background:var(--acento); }
+  button:focus-visible { outline:3px solid var(--acento); outline-offset:2px; }
+  button.ok { background:var(--ok); color:#fff; border-color:var(--ok); }
+  button.mal { background:var(--mal); color:#fff; border-color:var(--mal); }
+  figure { margin:16px 0; }
+  img { width:100%; border-radius:8px; background:#cfd8e6; min-height:160px; }
+  figcaption { text-align:center; font-weight:bold; font-size:1.2rem; margin-top:6px; }
+  #siguiente { width:100%; background:var(--tinta); color:#fff; }
+&lt;/style&gt;
+&lt;/head&gt;
+&lt;body&gt;
+&lt;main&gt;
+  &lt;h1&gt;Gatos HTTP&lt;/h1&gt;
+  &lt;p id=&quot;marcador&quot;&gt;&lt;/p&gt;
+  &lt;p id=&quot;numero&quot;&gt;&lt;/p&gt;
+  &lt;p id=&quot;pregunta&quot;&gt;&lt;/p&gt;
+  &lt;div id=&quot;opciones&quot;&gt;&lt;/div&gt;
+  &lt;figure id=&quot;gato&quot; hidden&gt;
+    &lt;figcaption&gt;&lt;/figcaption&gt;
+  &lt;/figure&gt;
+  &lt;button id=&quot;siguiente&quot; hidden&gt;Siguiente&lt;/button&gt;
+&lt;/main&gt;
+
+&lt;script type=&quot;module&quot;&gt;
+/* ============================================================
+   Cada bloque lleva una etiqueta con el tema de tu temario:
+   [1] Desestructuración   [2] Clases   [3] Callbacks y HOF
+   [4] Arrow functions     [5] http.cat [6] ECMAScript moderno
+   ============================================================ */
+
+// Datos del juego: un array de objetos.
+const CODIGOS = [
+  { code: 100, text: &quot;Continue&quot;, pista: &quot;Sigue enviando: la primera parte de la petición está bien.&quot; },
+  { code: 101, text: &quot;Switching Protocols&quot;, pista: &quot;El servidor acepta cambiar de protocolo (por ejemplo, a WebSocket).&quot; },
+  { code: 102, text: &quot;Processing&quot;, pista: &quot;El servidor recibió la petición y aún la está procesando (WebDAV).&quot; },
+  { code: 103, text: &quot;Early Hints&quot;, pista: &quot;Adelanta cabeceras para que el navegador precargue recursos antes de la respuesta final.&quot; },
+  { code: 200, text: &quot;OK&quot;, pista: &quot;La petición salió bien y el servidor devuelve lo pedido.&quot; },
+  { code: 201, text: &quot;Created&quot;, pista: &quot;Se creó un recurso nuevo (por ejemplo, un usuario).&quot; },
+  { code: 202, text: &quot;Accepted&quot;, pista: &quot;Petición aceptada, pero aún no se terminó de procesar.&quot; },
+  { code: 203, text: &quot;Non-Authoritative Information&quot;, pista: &quot;Salió bien, pero la información viene de una copia o proxy, no del servidor original.&quot; },
+  { code: 204, text: &quot;No Content&quot;, pista: &quot;Todo bien, pero no hay nada que devolver.&quot; },
+  { code: 205, text: &quot;Reset Content&quot;, pista: &quot;Todo bien: el cliente debe reiniciar el formulario o la vista.&quot; },
+  { code: 206, text: &quot;Partial Content&quot;, pista: &quot;Se devuelve solo una parte del recurso (descargas por rangos).&quot; },
+  { code: 207, text: &quot;Multi-Status&quot;, pista: &quot;Respuesta con varios estados a la vez, uno por recurso (WebDAV).&quot; },
+  { code: 208, text: &quot;Already Reported&quot;, pista: &quot;Los elementos ya se informaron antes en la misma respuesta (WebDAV).&quot; },
+  { code: 214, text: &quot;Transformation Applied&quot;, pista: &quot;Un proxy modificó el contenido de la respuesta original.&quot; },
+  { code: 226, text: &quot;IM Used&quot;, pista: &quot;El servidor responde con el resultado de manipulaciones (deltas) aplicadas al recurso.&quot; },
+  { code: 300, text: &quot;Multiple Choices&quot;, pista: &quot;Hay varias opciones posibles para el recurso solicitado.&quot; },
+  { code: 301, text: &quot;Moved Permanently&quot;, pista: &quot;La página se mudó para siempre a otra URL.&quot; },
+  { code: 302, text: &quot;Found&quot;, pista: &quot;El recurso está temporalmente en otra URL.&quot; },
+  { code: 303, text: &quot;See Other&quot;, pista: &quot;Mira otro recurso con GET para ver el resultado.&quot; },
+  { code: 304, text: &quot;Not Modified&quot;, pista: &quot;No cambió desde la última vez: usa tu copia en caché.&quot; },
+  { code: 305, text: &quot;Use Proxy&quot;, pista: &quot;Debes acceder al recurso a través de un proxy (obsoleto).&quot; },
+  { code: 307, text: &quot;Temporary Redirect&quot;, pista: &quot;Redirección temporal que conserva el método HTTP.&quot; },
+  { code: 308, text: &quot;Permanent Redirect&quot;, pista: &quot;Redirección permanente que conserva el método HTTP.&quot; },
+  { code: 400, text: &quot;Bad Request&quot;, pista: &quot;El servidor no entiende la petición: está mal formada.&quot; },
+  { code: 401, text: &quot;Unauthorized&quot;, pista: &quot;Necesitas identificarte (login) para entrar.&quot; },
+  { code: 402, text: &quot;Payment Required&quot;, pista: &quot;Reservado para pagos: hay que pagar para acceder.&quot; },
+  { code: 403, text: &quot;Forbidden&quot;, pista: &quot;Estás identificado, pero no tienes permiso.&quot; },
+  { code: 404, text: &quot;Not Found&quot;, pista: &quot;Ese recurso no existe.&quot; },
+  { code: 405, text: &quot;Method Not Allowed&quot;, pista: &quot;El método (GET, POST...) no está permitido para ese recurso.&quot; },
+  { code: 406, text: &quot;Not Acceptable&quot;, pista: &quot;El servidor no puede devolver el contenido en el formato que pides.&quot; },
+  { code: 407, text: &quot;Proxy Authentication Required&quot;, pista: &quot;Debes autenticarte ante el proxy.&quot; },
+  { code: 408, text: &quot;Request Timeout&quot;, pista: &quot;El servidor se cansó de esperar la petición completa.&quot; },
+  { code: 409, text: &quot;Conflict&quot;, pista: &quot;La petición choca con el estado actual del recurso.&quot; },
+  { code: 410, text: &quot;Gone&quot;, pista: &quot;El recurso existió pero se eliminó para siempre.&quot; },
+  { code: 411, text: &quot;Length Required&quot;, pista: &quot;Falta la cabecera Content-Length.&quot; },
+  { code: 412, text: &quot;Precondition Failed&quot;, pista: &quot;Una condición de las cabeceras de la petición no se cumplió.&quot; },
+  { code: 413, text: &quot;Payload Too Large&quot;, pista: &quot;El cuerpo de la petición es demasiado grande.&quot; },
+  { code: 414, text: &quot;Request-URI Too Long&quot;, pista: &quot;La URL es demasiado larga.&quot; },
+  { code: 415, text: &quot;Unsupported Media Type&quot;, pista: &quot;El formato de los datos enviados no está soportado.&quot; },
+  { code: 416, text: &quot;Request Range Not Satisfiable&quot;, pista: &quot;El rango solicitado queda fuera del recurso.&quot; },
+  { code: 417, text: &quot;Expectation Failed&quot;, pista: &quot;El servidor no puede cumplir lo que pide la cabecera Expect.&quot; },
+  { code: 418, text: &quot;I&#x27;m a teapot&quot;, pista: &quot;El servidor es una tetera y se niega a hacer café (es una broma oficial).&quot; },
+  { code: 419, text: &quot;Page Expired&quot;, pista: &quot;La sesión o el token CSRF caducó (típico de Laravel).&quot; },
+  { code: 420, text: &quot;Enhance Your Calm&quot;, pista: &quot;Cálmate: te limitaron por exceso de peticiones (lo usaba la antigua API de Twitter).&quot; },
+  { code: 421, text: &quot;Misdirected Request&quot;, pista: &quot;La petición llegó a un servidor que no puede responderla.&quot; },
+  { code: 422, text: &quot;Unprocessable Entity&quot;, pista: &quot;Petición bien formada, pero con datos inválidos para el servidor.&quot; },
+  { code: 423, text: &quot;Locked&quot;, pista: &quot;El recurso está bloqueado (WebDAV).&quot; },
+  { code: 424, text: &quot;Failed Dependency&quot;, pista: &quot;Falló porque otra petición de la que dependía falló.&quot; },
+  { code: 425, text: &quot;Too Early&quot;, pista: &quot;El servidor no quiere procesar una petición que podría repetirse.&quot; },
+  { code: 426, text: &quot;Upgrade Required&quot;, pista: &quot;Debes cambiar a otro protocolo (por ejemplo, TLS).&quot; },
+  { code: 428, text: &quot;Precondition Required&quot;, pista: &quot;El servidor exige que la petición sea condicional.&quot; },
+  { code: 429, text: &quot;Too Many Requests&quot;, pista: &quot;Hiciste demasiadas peticiones seguidas.&quot; },
+  { code: 431, text: &quot;Request Header Fields Too Large&quot;, pista: &quot;Las cabeceras de la petición son demasiado grandes.&quot; },
+  { code: 444, text: &quot;No Response&quot;, pista: &quot;Nginx cierra la conexión sin devolver respuesta.&quot; },
+  { code: 450, text: &quot;Blocked by Windows Parental Controls&quot;, pista: &quot;El control parental de Windows bloqueó la página.&quot; },
+  { code: 451, text: &quot;Unavailable For Legal Reasons&quot;, pista: &quot;Bloqueado por motivos legales o censura.&quot; },
+  { code: 495, text: &quot;SSL Certificate Error&quot;, pista: &quot;Nginx: el certificado SSL del cliente es inválido.&quot; },
+  { code: 496, text: &quot;SSL Certificate Required&quot;, pista: &quot;Nginx: se necesita un certificado SSL del cliente.&quot; },
+  { code: 497, text: &quot;HTTP Request Sent to HTTPS Port&quot;, pista: &quot;Nginx: enviaste una petición HTTP a un puerto HTTPS.&quot; },
+  { code: 498, text: &quot;Token expired/invalid&quot;, pista: &quot;El token de acceso expiró o no es válido.&quot; },
+  { code: 499, text: &quot;Client Closed Request&quot;, pista: &quot;Nginx: el cliente cerró la conexión antes de recibir respuesta.&quot; },
+  { code: 500, text: &quot;Internal Server Error&quot;, pista: &quot;El servidor falló por su cuenta.&quot; },
+  { code: 501, text: &quot;Not Implemented&quot;, pista: &quot;El servidor no soporta la función pedida.&quot; },
+  { code: 502, text: &quot;Bad Gateway&quot;, pista: &quot;Un servidor intermedio recibió una respuesta inválida del servidor de origen.&quot; },
+  { code: 503, text: &quot;Service Unavailable&quot;, pista: &quot;El servidor no puede atender ahora mismo.&quot; },
+  { code: 504, text: &quot;Gateway Timeout&quot;, pista: &quot;Un servidor intermedio no recibió respuesta a tiempo del servidor de origen.&quot; },
+  { code: 506, text: &quot;Variant Also Negotiates&quot;, pista: &quot;Error de configuración en la negociación de contenido.&quot; },
+  { code: 507, text: &quot;Insufficient Storage&quot;, pista: &quot;El servidor no tiene espacio para guardar la petición.&quot; },
+  { code: 508, text: &quot;Loop Detected&quot;, pista: &quot;El servidor detectó un bucle infinito.&quot; },
+  { code: 509, text: &quot;Bandwidth Limit Exceeded&quot;, pista: &quot;El sitio superó el ancho de banda permitido.&quot; },
+  { code: 510, text: &quot;Not Extended&quot;, pista: &quot;Faltan extensiones que el servidor exige.&quot; },
+  { code: 511, text: &quot;Network Authentication Required&quot;, pista: &quot;Debes autenticarte en la red (como el portal de un wifi público).&quot; },
+  { code: 521, text: &quot;Web Server Is Down&quot;, pista: &quot;Cloudflare: el servidor de origen rechazó la conexión.&quot; },
+  { code: 522, text: &quot;Connection Timed Out&quot;, pista: &quot;Cloudflare: se agotó el tiempo conectando con el servidor de origen.&quot; },
+  { code: 523, text: &quot;Origin Is Unreachable&quot;, pista: &quot;Cloudflare: no se puede llegar al servidor de origen.&quot; },
+  { code: 525, text: &quot;SSL Handshake Failed&quot;, pista: &quot;Cloudflare: falló el apretón de manos SSL con el origen.&quot; },
+  { code: 530, text: &quot;Site Frozen&quot;, pista: &quot;El sitio fue congelado o suspendido (por ejemplo, por falta de pago).&quot; },
+  { code: 599, text: &quot;Network Connect Timeout Error&quot;, pista: &quot;Se agotó el tiempo de conexión de red (código no oficial).&quot; },
+];
+
+// [4] ARROW FUNCTION + [3] CALLBACK: sort() recibe una función que decide el orden.
+// [6] Spread (...) copia el array para no modificar el original.
+const barajar = (lista) =&gt; [...lista].sort(() =&gt; Math.random() - 0.5);
+
+// [4] Arrow function corta: atajo para buscar elementos del DOM.
+const $ = (selector) =&gt; document.querySelector(selector);
+
+// [2] CLASE: agrupa datos (estado) y comportamiento (métodos).
+class Juego {
+  // [6] Campos privados (#): solo accesibles dentro de la clase.
+  #puntos = 0;
+  #ronda = 0;
+  #preguntas;
+
+  // [2] El constructor se ejecuta con &quot;new Juego(...)&quot;.
+  // [1] Parámetro por defecto: si no pasas &quot;total&quot;, vale 5.
+  constructor(datos, total = 10) {
+    // [6] structuredClone: copia profunda (no comparte referencias con CODIGOS).
+    this.#preguntas = barajar(structuredClone(datos)).slice(0, total);
+  }
+
+  // [2] Getters: se usan como propiedades (juego.actual), sin paréntesis.
+  get actual()    { return this.#preguntas[this.#ronda]; }
+  get terminado() { return this.#ronda &gt;= this.#preguntas.length; }
+  get estado()    { return { puntos: this.#puntos, ronda: this.#ronda + 1, total: this.#preguntas.length }; }
+
+  opciones(todos) {
+    // [1] Desestructuración: sacamos &quot;code&quot; del objeto actual.
+    const { code } = this.actual;
+    // [3] HOF: filter recibe un callback que decide qué elementos se quedan.
+    const distractores = barajar(todos.filter((d) =&gt; d.code !== code)).slice(0, 3);
+    return barajar([this.actual, ...distractores]);
+  }
+
+  responder(codigo) {
+    const acierto = codigo === this.actual.code;
+    if (acierto) this.#puntos++;
+    return acierto;
+  }
+
+  avanzar() { this.#ronda++; }
+}
+
+const juego = new Juego(CODIGOS);
+
+// [3] CALLBACK: &quot;alElegir&quot; es una función que nos pasan y llamamos más tarde.
+function crearBotones(opciones, alElegir) {
+  // [3] HOF: map transforma cada opción en un &lt;button&gt;.
+  // [1] Desestructuración en el parámetro: ({ code }) en vez de (opcion) =&gt; opcion.code
+  const botones = opciones.map(({ code, pista }) =&gt; {
+    const boton = document.createElement(&quot;button&quot;);
+    boton.textContent = pista;
+    boton.dataset.code = code;
+    boton.addEventListener(&quot;click&quot;, () =&gt; alElegir(code, boton));
+    return boton;
+  });
+  $(&quot;#opciones&quot;).replaceChildren(...botones);
+}
+
+function mostrarRonda() {
+  if (juego.terminado) return fin();
+
+  // [1] Desestructuración con varias propiedades a la vez.
+  const { puntos, ronda, total } = juego.estado;
+  const { code } = juego.actual;
+
+  $(&quot;#marcador&quot;).textContent = `Ronda ${ronda} de ${total}, ${puntos} puntos`;
+  $(&quot;#numero&quot;).textContent = code;
+  $(&quot;#pregunta&quot;).textContent = &quot;¿Qué significa este código HTTP?&quot;;
+  $(&quot;#gato&quot;).hidden = true;
+  $(&quot;#siguiente&quot;).hidden = true;
+
+  crearBotones(juego.opciones(CODIGOS), (codigo, boton) =&gt; {
+    // [1] Desestructuración + renombrado: &quot;code&quot; pasa a llamarse &quot;correcto&quot;.
+    const { code: correcto, text } = juego.actual;
+    const acierto = juego.responder(codigo);
+    boton.classList.add(acierto ? &quot;ok&quot; : &quot;mal&quot;);
+
+    // [3] HOF: forEach ejecuta el callback con cada botón.
+    document.querySelectorAll(&quot;#opciones button&quot;).forEach((b) =&gt; {
+      b.disabled = true;
+      if (Number(b.dataset.code) === correcto) b.classList.add(&quot;ok&quot;);
+    });
+    $(&quot;#gato figcaption&quot;).textContent = `${correcto} ${text}`;
+    $(&quot;#gato&quot;).hidden = false;
+    $(&quot;#siguiente&quot;).hidden = false;
+  });
+}
+
+function fin() {
+  const { puntos, total } = juego.estado;
+
+  // [6] Nullish coalescing (??): usa 0 solo si no hay valor guardado (null/undefined).
+  // [6] Optional chaining (?.): no falla si &quot;localStorage&quot; no existe.
+  const anterior = Number(globalThis.localStorage?.getItem(&quot;mejor&quot;) ?? 0);
+  const mejor = Math.max(anterior, puntos);
+  globalThis.localStorage?.setItem(&quot;mejor&quot;, mejor);
+
+  $(&quot;#marcador&quot;).textContent = `Mejor marca: ${mejor}`;
+  $(&quot;#pregunta&quot;).textContent = `Terminaste con ${puntos} de ${total}.`;
+  $(&quot;#opciones&quot;).replaceChildren();
+  $(&quot;#gato&quot;).hidden = true;
+
+  const otra = $(&quot;#siguiente&quot;);
+  otra.textContent = &quot;Jugar otra vez&quot;;
+  otra.hidden = false;
+  otra.onclick = () =&gt; location.reload();
+}
+
+$(&quot;#siguiente&quot;).onclick = () =&gt; { juego.avanzar(); mostrarRonda(); };
+
+mostrarRonda();
+&lt;/script&gt;
+&lt;/body&gt;
+&lt;/html&gt;
+"></iframe>
+<script>
+document.querySelectorAll("nav button").forEach((b) => b.addEventListener("click", () => {
+  document.querySelectorAll("nav button").forEach((x) => x.setAttribute("aria-selected", x === b));
+  document.querySelectorAll("iframe").forEach((f) => f.classList.toggle("activo", f.id === b.dataset.f));
+}));
+</script>
+</body>
+</html>
